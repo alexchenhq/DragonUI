@@ -1169,3 +1169,9 @@ L["Mail"] = true
 L["Retail-style mail window with Open All button"] = true
 L["Open All"] = true
 L["Opening..."] = true
+
+-- ============================================================================
+-- RATING CONVERSION
+-- ============================================================================
+L["Rating Conversion"] = true
+L["Appends rating to percent conversion to item tooltips and shows the stat difference against your equipped item."] = true

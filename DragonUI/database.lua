@@ -1313,6 +1313,9 @@ local defaults = {
             equipmentcompare = {
                 enabled = false, -- Compare equippable items without holding Shift; Ctrl suppresses it
             },
+            ratingbuster = {
+                enabled = false, -- Rating to percent conversion and stat difference versus equipped gear in tooltips
+            },
             chatmods = {
                 enabled = true, -- Chat enhancements: hide buttons, editbox position, URL copy, chat copy
                 linkHoverTooltip = false, -- Show supported chat-link tooltips without holding Alt

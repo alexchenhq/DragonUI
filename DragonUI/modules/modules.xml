@@ -80,6 +80,10 @@
     <!-- Automatic equipped-item comparison, including chat item links -->
     <Script file="equipmentcompare.lua"/>
 
+    <!-- Rating to percent conversion and stat difference in tooltips -->
+    <Script file="..\data\rating_tables.lua"/>
+    <Script file="ratingbuster.lua"/>
+
     <!-- Retail-style character window reskin -->
     <Include file="characterpanel\characterpanel.xml"/>
 

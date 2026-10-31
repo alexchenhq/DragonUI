@@ -1163,3 +1163,9 @@ L["Mail"] = "邮件"
 L["Retail-style mail window with Open All button"] = "带有全部打开按钮的正式服风格邮件窗口"
 L["Open All"] = "全部打开"
 L["Opening..."] = "正在打开..."
+
+-- ============================================================================
+-- 属性等级换算
+-- ============================================================================
+L["Rating Conversion"] = "属性等级换算"
+L["Appends rating to percent conversion to item tooltips and shows the stat difference against your equipped item."] = "在物品提示中附加等级到百分比的换算，并显示与已装备物品的属性差值。"
