@@ -4,10 +4,8 @@
 --   1) appended percent next to every rating line ("+12 Hit Rating (0.37%)")
 --   2) green/red stat difference against the item currently in that slot
 --
--- Percent conversion is calibrated at runtime from the player's own ratings, so
--- it is correct at every level 1-80 instead of only at the level cap. When the
--- coefficient for a stat cannot be determined, no percent is shown - a missing
--- number beats a wrong one.
+-- Conversion follows the client's own curve (see data/rating_tables.lua), so the
+-- numbers are right at every level 1-80, not just at the level cap.
 
 local addon = select(2, ...)
 local L = addon.L
@@ -37,65 +35,40 @@ local function IsModuleEnabled()
 end
 
 -- ============================================================================
--- LEVEL AWARE COEFFICIENTS
+-- CONVERSION
 -- ============================================================================
 
--- Calibrated at the player's current level: every combat rating type shares the
--- same level curve, so one readable stat gives the factor for all of them.
-local calibration = { level = nil, factor = nil, perKey = {} }
-
-local function ReadCalibration()
-    local level = UnitLevel("player") or 0
-    if calibration.level == level then
-        return calibration
-    end
-
-    calibration.level = level
-    calibration.factor = nil
-    for key in pairs(calibration.perKey) do
-        calibration.perKey[key] = nil
-    end
-
-    for key, index in pairs(Tables.combatRatingIndex) do
-        local rating = GetCombatRating(index) or 0
-        local bonus = GetCombatRatingBonus(index) or 0
-        if rating > 0 and bonus > 0 then
-            local coefficient = rating / bonus
-            calibration.perKey[key] = coefficient
-            if not calibration.factor and Tables.base80[key] then
-                calibration.factor = coefficient / Tables.base80[key]
-            end
-        end
-    end
-
-    return calibration
-end
-
--- Rating score needed for one percent of `key` at the player's level.
--- Returns nil when it cannot be derived, which suppresses the percent.
-local function GetCoefficient(key)
-    local level = UnitLevel("player") or 0
-    local calibrated = ReadCalibration()
-
-    if calibrated.perKey[key] then
-        return calibrated.perKey[key]
-    end
-
-    local base = Tables.base80[key]
-    if not base then
+-- Percent of the stat provided by `amount` rating at `level`.
+-- Returns nil for stats that have no percent form.
+local function GetPercent(key, amount, level)
+    local base = Tables.base[key]
+    if not base or not amount or amount == 0 then
         return nil
     end
 
-    -- At the level cap the base table is exact on its own.
-    if level >= 80 then
-        return base
+    level = level or UnitLevel("player")
+
+    -- Below 34 the defensive ratings convert at the level 34 rate.
+    if Tables.level34Floor[key] and level < 34 then
+        level = 34
     end
 
-    if calibrated.factor then
-        return base * calibrated.factor
+    local rating = amount
+    if key == "ITEM_MOD_HASTE_RATING" then
+        local _, class = UnitClass("player")
+        if class and Tables.extraMeleeHaste[class] then
+            rating = rating * 1.3
+        end
     end
 
-    return nil
+    local points = rating / base / Tables.GetLevelFactor(level)
+
+    -- Expertise and defense are counted in skill points; convert to percent.
+    local perPercent = Tables.pointsPerPercent[key]
+    if perPercent then
+        return points / perPercent
+    end
+    return points
 end
 
 local function FormatPercent(percent)
@@ -123,20 +96,15 @@ local function DecorateLine(line)
         return
     end
 
-    local plain = StripColors(text)
-    local value, label = string.match(plain, "^%+(%d+)%s+(.+)$")
+    local value, label = string.match(StripColors(text), "^%+(%d+)%s+(.+)$")
     if not value then
         return
     end
     label = string.gsub(label, "%s+$", "")
 
-    for key in pairs(Tables.base80) do
+    for key in pairs(Tables.base) do
         if label == Tables.GetLabel(key) then
-            local coefficient = GetCoefficient(key)
-            if not coefficient then
-                return
-            end
-            local percent = FormatPercent(tonumber(value) / coefficient)
+            local percent = FormatPercent(GetPercent(key, tonumber(value)))
             if percent then
                 line:SetText(text .. " " .. PERCENT_COLOR .. "(" .. percent .. ")|r")
             end
@@ -173,12 +141,9 @@ local function AddStatDifference(tooltip, link)
         if difference ~= 0 then
             local text = string.format("%s%+d %s", difference > 0 and GAIN_COLOR or LOSS_COLOR,
                 difference, Tables.GetLabel(key))
-            local coefficient = GetCoefficient(key)
-            if coefficient then
-                local percent = FormatPercent(difference / coefficient)
-                if percent then
-                    text = text .. " (" .. percent .. ")"
-                end
+            local percent = FormatPercent(GetPercent(key, difference))
+            if percent then
+                text = text .. " (" .. percent .. ")"
             end
             tooltip:AddLine(text .. "|r", 1, 1, 1)
         end
@@ -282,8 +247,6 @@ local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_LEVEL_UP")
 eventFrame:SetScript("OnEvent", function()
-    -- Recalibrate on level change, then make sure hooks are in place.
-    calibration.level = nil
     if IsModuleEnabled() then
         ApplyRatingBusterSystem()
     end
